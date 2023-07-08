@@ -27,8 +27,6 @@ Vagrant.configure("2") do |config|
     config.vm.define "node1" do |node1|
       node1.vm.hostname = "node1"
       node1.vm.network "private_network", ip: "10.0.0.10"
-      # Passing the script to execute commands
-      node1.vm.provision "file", source: "node1.sh", destination: "~/node1.sh"
       # Provisioning script for Docker client and host entries
       node1.vm.provision "shell", inline: <<-SHELL
         # Install Docker client
@@ -47,13 +45,10 @@ Vagrant.configure("2") do |config|
     config.vm.define "node2" do |node2|
       node2.vm.hostname = "node2"
       node2.vm.network "private_network", ip: "10.0.0.11"
-      # Passing the script to execute commands
-      node2.vm.provision "file", source: "node2.sh", destination: "~/node2.sh"
       # Provisioning script for CA and host entries
       node2.vm.provision "shell", inline: <<-SHELL
         # Install CA services or perform other configuration as needed
-        chmod +x /home/vagrant/node2.sh
-
+        #n/a
         # Add entries in hosts file for name resolution
         echo "10.0.0.10 node1" >> /etc/hosts
         echo "10.0.0.11 node2" >> /etc/hosts
@@ -66,8 +61,6 @@ Vagrant.configure("2") do |config|
     config.vm.define "node3" do |node3|
       node3.vm.hostname = "node3"
       node3.vm.network "private_network", ip: "10.0.0.12"
-      # Passing the script to execute commands
-      node3.vm.provision "file", source: "node3.sh", destination: "~/node3.sh"
       # Provisioning script for Docker daemon and host entries
       node3.vm.provision "shell", inline: <<-SHELL
         # Install Docker daemon or perform other configuration as needed
@@ -86,8 +79,118 @@ Vagrant.configure("2") do |config|
 
 </details>
 
-*All nodes have access to a shared folder called `shared` that I'll use to distribute the keys*
+*All nodes have access to a shared folder called `shared` that I'll use to distribute the keys*  
 
 
+### Creating the envrioment
+
+We execute the `Vagrantfile` 
+```
+vagrant up
+```
+Just checking everything is up
+
+```
+PS C:\Users\Hecti\Downloads\Vagrant> vagrant status
+Current machine states:
+
+node1                     running (virtualbox)
+node2                     running (virtualbox)
+node3                     running (virtualbox)
+
+This environment represents multiple VMs. The VMs are all listed
+above with their current state. For more information about a specific
+VM, run `vagrant status NAME`.
+```
+
+Using `vagrant ssh <node>` I'll login to each node and I'll test the manual DNS (Domain Name System) mapping on the local system is working by pinging the other nodes.  
+*If DNS is not working the configurations we'll do won't work*
+
+Example:
+```
+vagrant@node1:~$ ping node2
+PING node2 (10.0.0.11) 56(84) bytes of data.
+64 bytes from node2 (10.0.0.11): icmp_seq=1 ttl=64 time=0.575 ms
+64 bytes from node2 (10.0.0.11): icmp_seq=2 ttl=64 time=0.940 ms
+```
 
 
+## Create a CA (self-signed certs)
+All of the following commands are executed in node2
+### Create private key for the CA
+```
+openssl genrsa -aes256 -out ca-key.pem 4096
+```
+*Requires you to set a pass phrase*
+*Generates a file `ca-key.pem`*
+
+### Generate a self-signed certificate using the private key  
+*The certificate itself contains the public key as part of its structure and the corresponding private key (`ca-key.pem`) is used during the certificate generation process.*
+
+```
+openssl req -new -x509 -days 730 -key ca-key.pem -sha256 -out ca.pem
+```
+It will ask to input some information
+```
+Enter pass phrase for ca-key.pem:
+You are about to be asked to enter information that will be incorporated
+into your certificate request.
+What you are about to enter is what is called a Distinguished Name or a DN.
+There are quite a few fields but you can leave some blank
+For some fields there will be a default value,
+If you enter '.', the field will be left blank.
+-----
+Country Name (2 letter code) [AU]:US
+State or Province Name (full name) [Some-State]:FL
+Locality Name (eg, city) []:Miami
+Organization Name (eg, company) [Internet Widgits Pty Ltd]:ABC
+Organizational Unit Name (eg, section) []:IT
+Common Name (e.g. server FQDN or YOUR name) []:Node2
+Email Address []:hector@email.com
+```
+*Generates a file `ca.pem`*  
+
+These two files `ca-key.pem` and `ca.pem` are the CA's key-pair and form the identity of the CA.  The CA is ready to use.   
+
+### Create a key-pair for the daemon
+```
+openssl genrsa -out daemon-key.pem 4096
+```
+*Generates a file `daemon-key.pem`*
+
+### Create a Certificate Signing Request (CSR) for the CA to create and sign a certificate for the daemon
+```
+openssl req -subj "/CN=node3 -sha256" -new -key daemon-key.pem -out daemon.csr
+```
+*Generates a file `daemon.csr`*
+
+### Add required attributes to the certificate
+This step creates a file `extfile.cnf` that tells the CA to add a couple of extended 
+attributes to the daemon's certificate when it signs it. These add the 
+daemon's DNS name and IP address, as well as configure the certificate 
+to be valid for server authentication. 
+
+Our `extfile.cnf` contains
+```
+vagrant@node2:~$ cat extfile.cnf 
+subjectAltName = DNS:node3, IP:10.0.0.12
+extendedKeyUsage = serverAuth
+vagrant@node2:~$ 
+```
+
+### Generate the certificate
+
+This step uses the CSR file `daemon.csr`, CA keys `ca-key.pem `, and the `extfile.cnf` file to sign 
+and configure the daemon's certificate. 
+
+```
+openssl x509 -req -days 730 -sha256 -in daemon.csr -CA ca.pem -CAkey ca-key.pem -CAcreateserial -out daemon-cert.pem -extfile extfile.cnf
+```
+*It will output the daemon's signed certificate (public key) as a new file called `daemon-cert.pem`*
+
+At this point, you have a working **CA**, as well as a **key-pair** for **node3** that can be used to secure the Docker daemon.  
+
+We delete the CSR `daemon.csr` and `extfile.cnf` used to sign the daemon certificate
+```
+rm daemon.csr extfile.cnf
+```
