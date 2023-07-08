@@ -1,2 +1,2 @@
-# docker
-Docker related configs
+# Docker
+Docker related projects
