@@ -355,3 +355,39 @@ vagrant@node3:~/.docker$ ps -elf | grep dockerd
 0 R vagrant    13948   12474  0  80   0 -  2040 -      02:36 pts/0    00:00:00 grep --color=auto dockerd
 vagrant@node3:~/.docker$ 
 ```
+
+The presence of `-H tcp://node3:2376` in the command output is evidence the daemon is listening on the network. Port 2376 is the standard port for Docker using TLS. 2375 is the default unsecured port. At this point, running a command such as docker version from **node1** won't work. This is because the **daemon** is configured to listen on the network, but the **Docker client** is still trying use the local IPC socket. Try the command again, but this time adding the `-H tcp://node3:2376` flag.
+
+```
+vagrant@node1:~$ docker -H tcp://node3:2376 version
+Client:
+ Version:           20.10.21
+ API version:       1.41
+ Go version:        go1.18.1
+ Git commit:        20.10.21-0ubuntu1~18.04.3
+ Built:             Thu Apr 27 05:50:21 2023
+ OS/Arch:           linux/amd64
+ Context:           default
+ Experimental:      true
+Error response from daemon: Client sent an HTTP request to an HTTPS server.
+vagrant@node1:~$
+```
+*Shows how unsecured docker client was rejected by secured daemon.*
+
+### Configuring the Docker client for TLS (node1)
+
+In this section, we'll configure the Docker client on **node1** for two things: 
+- To connect to a remote daemon over the network   
+- To sign all docker commands
+
+Export **DOCKER_TLS_VERIFY** environment variable to tell the Docker client to sign all   commands with its certificate.   
+```
+export DOCKER_TLS_VERIFY=1
+```
+
+For a permanent change create a `daemon.json` like in **node3** this time with the following content
+```
+{
+  "tlsverify": true
+}
+```
