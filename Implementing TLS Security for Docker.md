@@ -258,6 +258,7 @@ chmod -v 0444 ca . pem daemon-cert. pem client-cert. pem
 ```
 
 ## Distribute keys
+The presence of the CA's public key (`ca.pem`) on the client and daemon  nodes is what tells them to trust the certificates signed by the CA.
 
 ### In node2
 We'll copy all the generated file to a share folder for all other nodes to access
@@ -286,3 +287,34 @@ cp shared/daemon-cert.pem ~/.docker/cert.pem
 cp shared/daemon-key.pem  ~/.docker/key.pem
 cp shared/ca.pem .docker/
 ```
+
+## Configure Docker for TLS
+Daemon mode forces the daemon only to allow connections from clients with a valid certificate. Client mode tells the client only to connect with daemons that have a valid certificate. 
+
+
+### Configuring the Docker daemon for TLS (node3)
+As simple as setting few daemon flags in the `daemon.json` configuration file in `/etc/docker/` *(might need to create)*
+
+```
+{
+  "tls": true,
+  "tlsverify": true,
+  "tlscacert": "/home/vagrant/.docker/ca.pem",
+  "tlscert": "/home/vagrant/.docker/cert.pem",
+  "tlskey": "/home/vagrant/.docker/key.pem"
+}
+```
+
+Did not include `"hosts": ["tcp://node3:2376"],` because:
+> Warning! Linux systems running systemd don't allow you to use the 
+"hosts" option in daemon.json. Instead, you have to specify it in 
+a systemd override file. You may be able to do this with the sudo 
+systemctl edit docker command. This will open anew file called / 
+etc/systemd/system/docker.service.d/override.conf in an 
+editor. Add the following three lines and save the file. 
+
+It will cause the following error when restarting docker:
+> Failed to restart docker.service: Unit docker.service is not loaded properly: Invalid argument.
+See system logs and 'systemctl status docker.service' for details.  
+
+
