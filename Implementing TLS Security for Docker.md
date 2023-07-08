@@ -116,8 +116,9 @@ PING node2 (10.0.0.11) 56(84) bytes of data.
 
 
 ## Create a CA (self-signed certs)
-All of the following commands are executed in node2
+
 ### Create private key for the CA
+*We run all commands from the CA (node 2)*
 ```
 openssl genrsa -aes256 -out ca-key.pem 4096
 ```
@@ -178,9 +179,9 @@ extendedKeyUsage = serverAuth
 vagrant@node2:~$ 
 ```
 
-### Generate the certificate
+### Generate the certificate (for daemon/node3)
 
-This step uses the CSR file `daemon.csr`, CA keys `ca-key.pem `, and the `extfile.cnf` file to sign 
+This step uses the CSR file `daemon.csr`, CA keys `ca-key.pem`, CA Certificate `ca.pem` and the `extfile.cnf` file to sign 
 and configure the daemon's certificate. 
 
 ```
@@ -194,3 +195,40 @@ We delete the CSR `daemon.csr` and `extfile.cnf` used to sign the daemon certifi
 ```
 rm daemon.csr extfile.cnf
 ```
+
+## Create a key-pair for the client  
+
+Will repeat what we just did in for node3, but this time we do it for the node1 which will run the Docker client  
+*We run all commands from the CA (node 2)*
+
+###  Create a private key for node1
+```
+openssl genrsa -out client-key.pem 4096
+```
+*Generates a file `client-key.pem`*
+
+### Create a CSR
+We make sure to use the correct DNS name of the node that will be your secure Docker client. We are using node1  
+```
+openssl req -subj "/CN=node1" -new -key client-key.pem -out client.csr
+``` 
+*Generates a file `client.csr`*  
+
+### Create extfile.conf
+Make sure it has the following content
+```
+vagrant@node2:~$ cat extfile.cnf 
+extendedKeyUsage = clientAuth
+vagrant@node2:~$ 
+```
+This will make the certificate valid for client authentication. 
+
+### Generate the certificate (for client/node1)
+Using the CSR `client.csr`, the CA's certificate `ca.pem` *(public key)* and private keys `ca-key.pem`, and the `extfile.cnf` file.  
+```
+openssl x509 -req -days 730 -sha256 -in client.csr -CA ca.pem -CA ca.pem -CAkey ca-key.pem -CAcreateserial -out client-cert.pem -extfile extfile.cnf
+```
+*Generates a file `client-cert.pem`*
+
+
+
