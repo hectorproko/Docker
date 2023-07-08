@@ -1,6 +1,6 @@
 
 
-# 
+# Implementing TLS Security for Docker
 
 The project involves configuring Docker for secure communication between the client and the daemon in both client mode and daemon mode TLS. The aim is to establish a secure environment for production use, even when all traffic is confined within trusted internal networks.
 
@@ -153,7 +153,8 @@ Email Address []:hector@email.com
 
 These two files `ca-key.pem` and `ca.pem` are the CA's key-pair and form the identity of the CA.  The CA is ready to use.   
 
-### Create a key-pair for the daemon
+## Create a key-pair for the daemon
+*We run all commands from the CA (node 2)*
 ```
 openssl genrsa -out daemon-key.pem 4096
 ```
@@ -197,9 +198,9 @@ rm daemon.csr extfile.cnf
 ```
 
 ## Create a key-pair for the client  
-
+*We run all commands from the CA (node 2)*  
 Will repeat what we just did in for node3, but this time we do it for the node1 which will run the Docker client  
-*We run all commands from the CA (node 2)*
+
 
 ###  Create a private key for node1
 ```
@@ -228,7 +229,60 @@ Using the CSR `client.csr`, the CA's certificate `ca.pem` *(public key)* and pri
 ```
 openssl x509 -req -days 730 -sha256 -in client.csr -CA ca.pem -CA ca.pem -CAkey ca-key.pem -CAcreateserial -out client-cert.pem -extfile extfile.cnf
 ```
-*Generates a file `client-cert.pem`*
+*Generates a file `client-cert.pem`*  
 
 
+Delete the CSR and `extfile.cnf` files  
+```
+rm client.csr extfile.cnf 
+```
 
+At this point you should have the following 7 files in your working 
+```json
+ca-key.pem       << CA private key
+ca.pem           << CA public key (certificate)
+ca.srl           << Tracks serial numbers
+client-cert.pem  << Client public key (certificate)
+client-key.pem   << Client private key)
+daemon-cert.pem  << Daemon public key (certificate)
+daemon-key.pem   << Daemon private key)
+```
+
+Before moving on,we you should remove write permission from the private keys and make them only readable to us and other accounts that are members of our group.  
+```
+chmod 0400 ca-key. pem client-key. pem daemon-key. pem
+```
+You should also remove write access to the public key certificates. 
+```
+chmod -v 0444 ca . pem daemon-cert. pem client-cert. pem 
+```
+
+## Distribute keys
+
+### In node2
+We'll copy all the generated file to a share folder for all other nodes to access
+```
+cp ca-key.pem ca.pem ca.srl client-cert.pem client-key.pem daemon-cert.pem daemon-key.pem shared/
+```
+### In node1
+We create a `~/.docker` folder, set its permissions, and copy the required files (`client-cert.pem`, `client-key.pem`, and `ca.pem`) from the `/shared` folder to the `~/.docker` folder. The files are renamed during the copying process.  
+
+```
+mkdir .docker
+chmod 777 .docker
+cp shared/client-cert.pem .docker/cert.pem      
+cp shared/client-key.pem .docker/key.pem        
+cp shared/ca.pem .docker/
+
+```
+
+### In node3
+The provided commands create a `~/.docker` folder, set its permissions, and copy the required files (`daemon-cert.pem`, `daemon-key.pem`, and `ca.pem`) from the /shared folder to the `~/.docker `folder. The files are placed in the appropriate locations with the desired names.
+
+```
+mkdir .docker
+chmod 777 .docker
+cp shared/daemon-cert.pem ~/.docker/cert.pem
+cp shared/daemon-key.pem  ~/.docker/key.pem
+cp shared/ca.pem .docker/
+```
