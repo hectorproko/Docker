@@ -304,6 +304,11 @@ As simple as setting few daemon flags in the `daemon.json` configuration file in
   "tlskey": "/home/vagrant/.docker/key.pem"
 }
 ```
+- `tlsverify`: Enables or disables TLS verification for secure communication. `true` means TLS verification is enabled.
+- `tlscacert`: Specifies the path to the trusted Certificate Authority (CA) certificate. Docker will trust certificates signed by this CA.
+- `tlscert`: Specifies the path to the daemon's certificate.
+- `tlskey`: Specifies the path to the daemon's private key.
+- `hosts`: Specifies the sockets that the Docker daemon should listen on. This is an array and can have multiple entries. The example shows Docker listening on the default Unix socket and also on TCP port 2376 on all network interfaces.
 
 Did not include `"hosts": ["tcp://node3:2376"],` because:
 > Warning! Linux systems running systemd don't allow you to use the 
@@ -317,4 +322,29 @@ It will cause the following error when restarting docker:
 > Failed to restart docker.service: Unit docker.service is not loaded properly: Invalid argument.
 See system logs and 'systemctl status docker.service' for details.  
 
+The solution is to specify it in the `override.cnf`
+
+By using the `systemctl edit` command, we create an override file specifically for the Docker service. In the override file, you can define different values for the same parameter(s) or add additional parameters to customize the behavior of the Docker service.
+
+*The purpose of the override configuration is to modify specific settings or parameters of the Docker service without directly modifying the main service unit file (`docker.service`).*
+
+The path might not exist so we create it
+```bash
+sudo mkdir -p /etc/systemd/system/docker.service.d/
+```
+
+```bash
+sudo sh -c 'cat << EOF >> /etc/systemd/system/docker.service.d/override.conf
+{
+  [Service]
+  ExecStart=
+  ExecStart=/usr/bin/dockerd -H tcp://node3:2376
+}
+EOF'
+```
+Making sure the changes take effect
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+```
 
