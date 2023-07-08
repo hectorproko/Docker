@@ -238,7 +238,7 @@ rm client.csr extfile.cnf
 ```
 
 At this point you should have the following 7 files in your working 
-```json
+```css
 ca-key.pem       << CA private key
 ca.pem           << CA public key (certificate)
 ca.srl           << Tracks serial numbers
@@ -249,11 +249,11 @@ daemon-key.pem   << Daemon private key)
 ```
 
 Before moving on,we you should remove write permission from the private keys and make them only readable to us and other accounts that are members of our group.  
-```
+```bash
 chmod 0400 ca-key. pem client-key. pem daemon-key. pem
 ```
 You should also remove write access to the public key certificates. 
-```
+```bash
 chmod -v 0444 ca . pem daemon-cert. pem client-cert. pem 
 ```
 
@@ -267,7 +267,7 @@ cp ca-key.pem ca.pem ca.srl client-cert.pem client-key.pem daemon-cert.pem daemo
 ### In node1
 We create a `~/.docker` folder, set its permissions, and copy the required files (`client-cert.pem`, `client-key.pem`, and `ca.pem`) from the `/shared` folder to the `~/.docker` folder. The files are renamed during the copying process.  
 
-```
+```bash
 mkdir .docker
 chmod 777 .docker
 cp shared/client-cert.pem .docker/cert.pem      
@@ -279,7 +279,7 @@ cp shared/ca.pem .docker/
 ### In node3
 The provided commands create a `~/.docker` folder, set its permissions, and copy the required files (`daemon-cert.pem`, `daemon-key.pem`, and `ca.pem`) from the /shared folder to the `~/.docker `folder. The files are placed in the appropriate locations with the desired names.
 
-```
+```bash
 mkdir .docker
 chmod 777 .docker
 cp shared/daemon-cert.pem ~/.docker/cert.pem
