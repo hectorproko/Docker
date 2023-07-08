@@ -348,3 +348,10 @@ sudo systemctl daemon-reload
 sudo systemctl restart docker
 ```
 
+Once docker is restarted, we check that the new hosts value is in effect by inspecting the output of a `ps` command
+```
+vagrant@node3:~/.docker$ ps -elf | grep dockerd
+4 S root       13772       1  0  80   0 - 324763 -     02:35 ?        00:00:00 /usr/bin/dockerd -H tcp://node3:2376
+0 R vagrant    13948   12474  0  80   0 -  2040 -      02:36 pts/0    00:00:00 grep --color=auto dockerd
+vagrant@node3:~/.docker$ 
+```
