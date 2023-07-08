@@ -15,7 +15,7 @@ I'll be using Vagrant to create the test environment
 <details>
 <summary>Vagrantfile</summary>
 
-```json
+```
 Vagrant.configure("2") do |config|
   
     config.vm.box = "ubuntu/bionic64" # Choose your desired base box
