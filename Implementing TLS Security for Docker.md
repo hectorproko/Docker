@@ -385,9 +385,14 @@ Export **DOCKER_TLS_VERIFY** environment variable to tell the Docker client to s
 export DOCKER_TLS_VERIFY=1
 ```
 
+<!-- NOT WOKRING
 For a permanent change create a `daemon.json` like in **node3** this time with the following content
 ```
 {
   "tlsverify": true
 }
 ```
+-->
+
+
+
