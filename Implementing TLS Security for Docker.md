@@ -394,5 +394,40 @@ For a permanent change create a `daemon.json` like in **node3** this time with t
 ```
 -->
 
+After enabling TLS verification in the Docker client by setting the DOCKER_TLS_VERIFY environment variable to 1, you can test the connection using the docker command with the appropriate host and port.
 
+```
+vagrant@node1:~$ export DOCKER_TLS_VERIFY=1
+vagrant@node1:~$ docker -H tcp://node3:2376 version
+Client:
+ Version:           20.10.21
+ API version:       1.41
+ Go version:        go1.18.1
+ Git commit:        20.10.21-0ubuntu1~18.04.3
+ Built:             Thu Apr 27 05:50:21 2023
+ OS/Arch:           linux/amd64
+ Context:           default
+ Experimental:      true
 
+Server:
+ Engine:
+  Version:          20.10.21
+  API version:      1.41 (minimum version 1.12)
+  Go version:       go1.18.1
+  Git commit:       20.10.21-0ubuntu1~18.04.3
+  Built:            Thu Apr 27 05:36:22 2023
+  OS/Arch:          linux/amd64
+  Experimental:     false
+ containerd:
+  Version:          1.6.12-0ubuntu1~18.04.1
+  GitCommit:
+ runc:
+  Version:          1.1.4-0ubuntu1~18.04.2
+  GitCommit:
+ docker-init:
+  Version:          0.19.0
+  GitCommit:
+vagrant@node1:~$
+```
+
+The Docker client successfully established a secure connection with the Docker daemon, ensuring a secure and encrypted communication channel between the two. 
