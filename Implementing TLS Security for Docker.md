@@ -15,7 +15,7 @@ I'll be using Vagrant to create the test environment
 <details>
 <summary>Vagrantfile</summary>
 
-```
+```css
 Vagrant.configure("2") do |config|
   
     config.vm.box = "ubuntu/bionic64" # Choose your desired base box
@@ -85,12 +85,12 @@ Vagrant.configure("2") do |config|
 ### Creating the envrioment
 
 We execute the `Vagrantfile` 
-```
+```bash
 vagrant up
 ```
 Just checking everything is up
 
-```
+```bash
 PS C:\Users\Hecti\Downloads\Vagrant> vagrant status
 Current machine states:
 
@@ -106,8 +106,8 @@ VM, run `vagrant status NAME`.
 Using `vagrant ssh <node>` I'll login to each node and I'll test the manual DNS (Domain Name System) mapping on the local system is working by pinging the other nodes.  
 *If DNS is not working the configurations we'll do won't work*
 
-Example:
-```
+**Example:**
+```bash
 vagrant@node1:~$ ping node2
 PING node2 (10.0.0.11) 56(84) bytes of data.
 64 bytes from node2 (10.0.0.11): icmp_seq=1 ttl=64 time=0.575 ms
@@ -119,7 +119,7 @@ PING node2 (10.0.0.11) 56(84) bytes of data.
 
 ### Create private key for the CA
 *We run all commands from the CA (node 2)*
-```
+```bash
 openssl genrsa -aes256 -out ca-key.pem 4096
 ```
 *Requires you to set a pass phrase*
@@ -128,11 +128,11 @@ openssl genrsa -aes256 -out ca-key.pem 4096
 ### Generate a self-signed certificate using the private key  
 *The certificate itself contains the public key as part of its structure and the corresponding private key (`ca-key.pem`) is used during the certificate generation process.*
 
-```
+```bash
 openssl req -new -x509 -days 730 -key ca-key.pem -sha256 -out ca.pem
 ```
 It will ask to input some information
-```
+```bash
 Enter pass phrase for ca-key.pem:
 You are about to be asked to enter information that will be incorporated
 into your certificate request.
@@ -155,13 +155,13 @@ These two files `ca-key.pem` and `ca.pem` are the CA's key-pair and form the ide
 
 ## Create a key-pair for the daemon
 *We run all commands from the CA (node 2)*
-```
+```bash
 openssl genrsa -out daemon-key.pem 4096
 ```
 *Generates a file `daemon-key.pem`*
 
 ### Create a Certificate Signing Request (CSR) for the CA to create and sign a certificate for the daemon
-```
+```bash
 openssl req -subj "/CN=node3 -sha256" -new -key daemon-key.pem -out daemon.csr
 ```
 *Generates a file `daemon.csr`*
@@ -173,7 +173,7 @@ daemon's DNS name and IP address, as well as configure the certificate
 to be valid for server authentication. 
 
 Our `extfile.cnf` contains
-```
+```bash
 vagrant@node2:~$ cat extfile.cnf 
 subjectAltName = DNS:node3, IP:10.0.0.12
 extendedKeyUsage = serverAuth
@@ -185,7 +185,7 @@ vagrant@node2:~$
 This step uses the CSR file `daemon.csr`, CA keys `ca-key.pem`, CA Certificate `ca.pem` and the `extfile.cnf` file to sign 
 and configure the daemon's certificate. 
 
-```
+```bash
 openssl x509 -req -days 730 -sha256 -in daemon.csr -CA ca.pem -CAkey ca-key.pem -CAcreateserial -out daemon-cert.pem -extfile extfile.cnf
 ```
 *It will output the daemon's signed certificate (public key) as a new file called `daemon-cert.pem`*
@@ -193,7 +193,7 @@ openssl x509 -req -days 730 -sha256 -in daemon.csr -CA ca.pem -CAkey ca-key.pem 
 At this point, you have a working **CA**, as well as a **key-pair** for **node3** that can be used to secure the Docker daemon.  
 
 We delete the CSR `daemon.csr` and `extfile.cnf` used to sign the daemon certificate
-```
+```bash
 rm daemon.csr extfile.cnf
 ```
 
@@ -203,21 +203,21 @@ Will repeat what we just did in for node3, but this time we do it for the node1 
 
 
 ###  Create a private key for node1
-```
+```bash
 openssl genrsa -out client-key.pem 4096
 ```
 *Generates a file `client-key.pem`*
 
 ### Create a CSR
 We make sure to use the correct DNS name of the node that will be your secure Docker client. We are using node1  
-```
+```bash
 openssl req -subj "/CN=node1" -new -key client-key.pem -out client.csr
 ``` 
 *Generates a file `client.csr`*  
 
 ### Create extfile.conf
 Make sure it has the following content
-```
+```bash
 vagrant@node2:~$ cat extfile.cnf 
 extendedKeyUsage = clientAuth
 vagrant@node2:~$ 
@@ -226,14 +226,14 @@ This will make the certificate valid for client authentication.
 
 ### Generate the certificate (for client/node1)
 Using the CSR `client.csr`, the CA's certificate `ca.pem` *(public key)* and private keys `ca-key.pem`, and the `extfile.cnf` file.  
-```
+```bash
 openssl x509 -req -days 730 -sha256 -in client.csr -CA ca.pem -CA ca.pem -CAkey ca-key.pem -CAcreateserial -out client-cert.pem -extfile extfile.cnf
 ```
 *Generates a file `client-cert.pem`*  
 
 
 Delete the CSR and `extfile.cnf` files  
-```
+```bash
 rm client.csr extfile.cnf 
 ```
 
@@ -262,7 +262,7 @@ The presence of the CA's public key (`ca.pem`) on the client and daemon  nodes i
 
 ### In node2
 We'll copy all the generated file to a share folder for all other nodes to access
-```
+```bash
 cp ca-key.pem ca.pem ca.srl client-cert.pem client-key.pem daemon-cert.pem daemon-key.pem shared/
 ```
 ### In node1
@@ -274,7 +274,6 @@ chmod 777 .docker
 cp shared/client-cert.pem .docker/cert.pem      
 cp shared/client-key.pem .docker/key.pem        
 cp shared/ca.pem .docker/
-
 ```
 
 ### In node3
@@ -295,7 +294,7 @@ Daemon mode forces the daemon only to allow connections from clients with a vali
 ### Configuring the Docker daemon for TLS (node3)
 As simple as setting few daemon flags in the `daemon.json` configuration file in `/etc/docker/` *(might need to create)*
 
-```
+```bash
 {
   "tls": true,
   "tlsverify": true,
@@ -349,7 +348,7 @@ sudo systemctl restart docker
 ```
 
 Once docker is restarted, we check that the new hosts value is in effect by inspecting the output of a `ps` command
-```
+```bash
 vagrant@node3:~/.docker$ ps -elf | grep dockerd
 4 S root       13772       1  0  80   0 - 324763 -     02:35 ?        00:00:00 /usr/bin/dockerd -H tcp://node3:2376
 0 R vagrant    13948   12474  0  80   0 -  2040 -      02:36 pts/0    00:00:00 grep --color=auto dockerd
@@ -358,7 +357,7 @@ vagrant@node3:~/.docker$
 
 The presence of `-H tcp://node3:2376` in the command output is evidence the daemon is listening on the network. Port 2376 is the standard port for Docker using TLS. 2375 is the default unsecured port. At this point, running a command such as docker version from **node1** won't work. This is because the **daemon** is configured to listen on the network, but the **Docker client** is still trying use the local IPC socket. Try the command again, but this time adding the `-H tcp://node3:2376` flag.
 
-```
+```bash
 vagrant@node1:~$ docker -H tcp://node3:2376 version
 Client:
  Version:           20.10.21
@@ -381,13 +380,14 @@ In this section, we'll configure the Docker client on **node1** for two things:
 - To sign all docker commands
 
 Export **DOCKER_TLS_VERIFY** environment variable to tell the Docker client to sign all   commands with its certificate.   
-```
+```bash
 export DOCKER_TLS_VERIFY=1
 ```
 
 <!-- NOT WOKRING
 For a permanent change create a `daemon.json` like in **node3** this time with the following content
-```
+Maybe issue is that daemon.json is for daemon and client has its own file
+```bash
 {
   "tlsverify": true
 }
@@ -396,7 +396,7 @@ For a permanent change create a `daemon.json` like in **node3** this time with t
 
 After enabling TLS verification in the Docker client by setting the DOCKER_TLS_VERIFY environment variable to 1, you can test the connection using the docker command with the appropriate host and port.
 
-```
+```bash
 vagrant@node1:~$ export DOCKER_TLS_VERIFY=1
 vagrant@node1:~$ docker -H tcp://node3:2376 version
 Client:
